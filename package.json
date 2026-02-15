@@ -1,0 +1,17 @@
+{
+  "name": "uml-diagram-js",
+  "version": "1.0.0",
+  "description": "AI PlantUML Generator",
+  "main": "index.js",
+  "scripts": {
+    "start": "netlify dev"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "openai": "^4.28.0",
+    "plantuml-encoder": "^1.4.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Генератор PlantUML</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .diagram-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 2rem;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+        .diagram-container img {
+            max-width: 100%;
+            height: auto;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+        .code-editor {
+            background: #f1f3f5;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre;
+            min-height: 300px;
+            width: 100%;
+            border: 1px solid #dee2e6;
+            color: #212529;
+        }
+        .code-editor:focus {
+            outline: none;
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .loading {
+            display: none;
+        }
+        #error-message {
+            display: none;
+        }
+        #info-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="pb-3 mb-4 border-bottom">
+            <a href="/" class="d-flex align-items-center text-dark text-decoration-none">
+                <span class="fs-4">🌿 AI Генератор PlantUML</span>
+            </a>
+        </header>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Опишите вашу диаграмму</h5>
+                        <form id="diagramForm">
+                            <div class="mb-3">
+                                <label for="accessCode" class="form-label">Код доступа</label>
+                                <input type="password" class="form-control" id="accessCode" placeholder="Введите код доступа" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Описание диаграммы</label>
+                                <textarea class="form-control" id="description" placeholder="например: Пользователь входит в систему, сервер проверяет пароль и возвращает токен." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="generateBtn">
+                                <span class="spinner-border spinner-border-sm loading" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">Создать диаграмму</span>
+                            </button>
+                        </form>
+                        <div class="alert alert-danger mt-3" id="error-message" role="alert"></div>
+                    </div>
+                </div>
+                
+                <div class="card shadow-sm mt-3">
+                    <div class="card-body">
+                        <h6 class="card-title">Подсказки</h6>
+                        <ul class="small text-muted ps-3 mb-0">
+                            <li>Будьте конкретны в описании действующих лиц и действий.</li>
+                            <li>Укажите тип диаграммы (Последовательности, Классов, Активности и т.д.).</li>
+                            <li>Пример: "Создай диаграмму классов для системы библиотеки."</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="diagram-container" id="diagram-output">
+                    <p class="text-muted">Ваша диаграмма появится здесь...</p>
+                </div>
+
+                <div id="info-section" class="mt-3">
+                    <div class="card bg-light border-0">
+                        <div class="card-body">
+                            <h5 class="card-title" id="diagram-type-title">Информация о диаграмме</h5>
+                            <p class="card-text" id="diagram-explanation"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="code-section" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                        <h6 class="mb-0">Редактор кода PlantUML</h6>
+                        <div>
+                            <button class="btn btn-sm btn-primary me-2" id="updateBtn" onclick="updateDiagram()">
+                                <span class="spinner-border spinner-border-sm loading-update" role="status" aria-hidden="true" style="display:none"></span>
+                                Обновить диаграмму
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyCode()">Копировать</button>
+                        </div>
+                    </div>
+                    <textarea class="code-editor" id="code-output" spellcheck="false"></textarea>
+                </div>
+
+                <div class="mt-2 text-end">
+                    <small class="text-muted">Работает на OpenAI & PlantUML</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('diagramForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const updateBtn = document.getElementById('updateBtn');
+        const loadingSpinner = document.querySelector('.loading');
+        const loadingUpdate = document.querySelector('.loading-update');
+        const btnText = document.querySelector('.btn-text');
+        const outputDiv = document.getElementById('diagram-output');
+        const errorDiv = document.getElementById('error-message');
+        const codeSection = document.getElementById('code-section');
+        const codeOutput = document.getElementById('code-output');
+        const infoSection = document.getElementById('info-section');
+        const diagramTypeTitle = document.getElementById('diagram-type-title');
+        const diagramExplanation = document.getElementById('diagram-explanation');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UI Loading State
+            generateBtn.disabled = true;
+            loadingSpinner.style.display = 'inline-block';
+            btnText.textContent = 'Создание...';
+            errorDiv.style.display = 'none';
+            codeSection.style.display = 'none';
+            infoSection.style.display = 'none';
+            outputDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>';
+
+            const description = document.getElementById('description').value;
+            const accessCode = document.getElementById('accessCode').value;
+
+            try {
+                const response = await fetch('/.netlify/functions/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ description, access_code: accessCode }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Не удалось создать диаграмму');
+                }
+
+                // Render Image
+                outputDiv.innerHTML = `<img src="${data.image_url}" alt="PlantUML Diagram" class="img-fluid" />`;
+                
+                // Show Info
+                if (data.diagram_type) {
+                    diagramTypeTitle.textContent = data.diagram_type;
+                }
+                if (data.explanation) {
+                    diagramExplanation.textContent = data.explanation;
+                    infoSection.style.display = 'block';
+                }
+
+                // Show Code in Textarea
+                codeOutput.value = data.code;
+                codeSection.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+                outputDiv.innerHTML = '<p class="text-danger">Не удалось создать диаграмму.</p>';
+            } finally {
+                generateBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
+                btnText.textContent = 'Создать диаграмму';
+            }
+        });
+
+        async function updateDiagram() {
+            const code = codeOutput.value;
+            if (!code) return;
+
+            // UI Loading State for Update
+            updateBtn.disabled = true;
+            loadingUpdate.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/.netlify/functions/render', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Не удалось обновить диаграмму');
+                }
+
+                // Update Image
+                outputDiv.innerHTML = `<img src="${data.image_url}" alt="PlantUML Diagram" class="img-fluid" />`;
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Ошибка при обновлении: ' + error.message);
+            } finally {
+                updateBtn.disabled = false;
+                loadingUpdate.style.display = 'none';
+            }
+        }
+
+        function copyCode() {
+            const code = document.getElementById('code-output').value;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Код скопирован в буфер обмена!');
+            });
+        }
+    </script>
+</body>
+</html>
